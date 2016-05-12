@@ -23,7 +23,7 @@ $currentdate = date("Y-m-d", $timestamp);
 	<link rel="icon" type="image/png" sizes="96x96" href="./favicon-96x96.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
 	<meta property="og:image"
-    content="./redditthumb.png" />
+    content="https://robserob.dk/vive/thumb.png" />
 
     <title>HTC Vive - Estimated shipping</title>
 
@@ -85,12 +85,12 @@ $currentdate = date("Y-m-d", $timestamp);
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
-            <li <? if ($currentday) echo 'class="active"'?>><a href="/vive/">Stats for today</a></li>
-            <li><a href="/vive/charts.php">Shipment charts</a></li>
-            <li class="dropdown <? if (!$currentday) echo 'active'?>">
+            <li <?php if ($currentday && strpos($_SERVER['PHP_SELF'], "index.php")) echo 'class="active"'?>><a href="/vive/">Stats for today</a></li>
+            <li <?php if (strpos($_SERVER['PHP_SELF'], "charts.php")) echo 'class="active"'?>><a href="/vive/charts.php">Shipment charts</a></li>
+            <li class="dropdown <?php if (!$currentday) echo 'active'?>">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">See stats for past date <span class="caret"></span></a>
               <ul class="dropdown-menu">
-				<?
+				<?php
 				$get_days = mysql_query("SELECT COUNT( id ), firstdate FROM  `vive` WHERE  `origin` LIKE  '%Ricany-Jazlovice%' GROUP BY firstdate");
 				$day_cnt = 1;
 				while ($day = mysql_fetch_array($get_days)) {
