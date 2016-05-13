@@ -29,9 +29,6 @@ If i am not mistaken the formula DHL currently uses is:
 ```
 |x/7| * 70 + (x mod 7 * 11)
 ```
-
-Where x is the current number in the sequence and the result is the tracking number. There might be a small error in my equation as my system currently just uses a dumper iterative version (Add 11 6 times, increment one number, etc).
-
 But yes, It's really bad practice to make numbers like these SO easy to generate, they should have been randomized. But making a system like that would be a lot harder, also considering that they regularly reuse old numbers. Having one incremented value makes it easier to provide the shippers with tracking numbers. I think i normally see well over 100.000 packages a day (And it seems Asia has its own starting point so i am not even counting them!). The time it would take to make random numbers until it doesn't hit an already existing one could introduce significant slowdown at peak times. So these pseudo random sequential numbers are a lot faster.
 
 However luckily you cannot see the address and such using those numbers. So they aren't really useful for other people :)
