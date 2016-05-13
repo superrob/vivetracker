@@ -20,6 +20,6 @@ while ($dat = $get->fetch_array()) {
 	$db_insertArchive_stmt->execute();
 }
 $db_insertArchive_stmt->close();
-$db_insertVive_stmt->close();
+$db_updateVive_stmt->close();
 $db->close();
 ?>
