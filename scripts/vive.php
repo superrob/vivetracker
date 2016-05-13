@@ -2,61 +2,55 @@
 <?
 include("database.php");
 
+// Tracking number generation function. 
+function generateTrackingNumber($seq) {
+	return floor($seq / 7) * 70 + (($seq % 7) * 11);
+}
+
+// Find the current highest tracking number.
 $get = mysql_query("select id from vive order by ID desc limit 1");
 $startdat = mysql_fetch_array($get);
 
-$cnt = 0;
-$series = floor($startdat['id']/70);
-//7364211256
-//$start = floor($startdat['id']/70);
-//$series = floor($startdat['id']/70);
-$seq = 0;
-$inc = 0;
-$none = 0;
-echo "Starting from $series..\n\n";
+// Get the current sequence number from the current tracking number.
+$seq = floor($startdat['id']/70)*7;
+
+echo "Starting from $seq\n\n";
+// Initialize curl.
 $ch = curl_init();
-while ($cnt < 50000) {
-	$cnt++;
-	$nums = "";	
-	for ($i=0;$i<10;$i++) {
-		$cur = ($series+$inc)*70 +($seq*11);	
+// Continue to loop until we break the loop.
+while (true) {
+	// Init an empty array for the tracking numbers.
+	$trackingNumbers = array();
+	// Generate the tracking number string until 10 numbers have been reached.
+	while (count($trackingNumbers) < 10) {
+		// Generate a tracking number and increment the sequence number.
+		$cur = generateTrackingNumber($seq++);	
 		echo "Trying $cur\r";		
-		//if ($cur > 7362761615)
-		//	$cnt = 55555555;
-		if (mysql_num_rows(mysql_query("select id from vive where id='".$cur."'")) == 0) {
-			$nums .= $cur .",";
-		} else {
-			$i--;
-		}
-		$seq++;
-		if ($seq >= 7) {
-			$inc++; 
-			$seq = 0;
-		}
+		
+		// Check if the generated tracking number is already present in the database.
+		if (mysql_num_rows(mysql_query("select id from vive where id='".$cur."'")) == 0)
+			$trackingNumbers[] = $cur;
 	}
-	$nums = rtrim($nums);
 	
-	$url = "http://www.dhl.com/shipmentTracking?AWB=".$nums."&countryCode=g0&languageCode=en&_=1460201053210";
+	// Generate the DHL json feed URL.
+	$url = "http://www.dhl.com/shipmentTracking?AWB=".implode(",", $trackingNumbers)."&countryCode=g0&languageCode=en&_=1460201053210";
 	curl_setopt($ch, CURLOPT_URL, $url);
 	curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4 );
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	$string = curl_exec($ch);
-	//echo $string;
-	//die();
-	//$string = file_get_contents($url);
-	$json = json_decode($string, true);
+	$output = curl_exec($ch);	
+	$json = json_decode($output, true);
+	
+	// Are there any results?
 	if (!isset($json["results"])) {
-		$none++;
-		$get = mysql_query("select id from vive where found=1 order by ID desc limit 1");
-		$highestdat = mysql_fetch_array($get);
-		if ($cur - $highestdat['id'] > 5000 ) {		
-			die("No more!");
+		// No results.. Lets check if we have gone "too far away" from the current highest tracking number found.
+		$highestdat = mysql_fetch_array(mysql_query("select id from vive where found=1 order by ID desc limit 1"));
+		if ($cur - $highestdat['id'] > 10000 ) {
+			echo "No more new tracking numbers\n";
+			break;
 		}
 	} else {
-		$none = 0;
-		for ($j=0;$j<count($json["results"]);$j++) {
-			$current = $json["results"][$j];
-			
+		// We have some results!
+		foreach ($json['results'] as $current) {			
 			$origin = mysql_real_escape_string($current["origin"]["value"]);
 			$des = mysql_real_escape_string($current["destination"]["value"]);
 			$descrip = mysql_real_escape_string($current["description"]);
@@ -69,17 +63,20 @@ while ($cnt < 50000) {
 			//echo "\nDescription: " . $current["description"];
 			//echo "\nCheckpoint: " . $check["description"] . " at: " . $check["date"];
 			echo "Date: " . date("j m y") . "\n\n";
-			// Found!
+			// Lets remove the tracking number from the revive table (If present)
 			mysql_query("delete from revive where id=".$current["id"]);
+			// Lets insert the newly found tracking number into the Vive table.
 			mysql_query("insert into vive (id, found, origin, destination, description, firstdate) values (".$current["id"].", 1, '".$origin."', '$des', '$descrip', FROM_UNIXTIME(".$unix."))");
 		}	
 	}
 	if (isset($json["errors"])) {
-		//print_r($json["errors"]);
-		for ($j=0;$j<count($json["errors"]);$j++) {
-			$current = $json["errors"][$j];			
-			//mysql_query("delete from vive where id=".$current["id"]);
+		foreach ($json["errors"] as $current) {
+			// Is the error any different from error 404?
+			if ($current['code'] != 404)
+				print_r($current);
+			// Lets add this tracking number as not found in the Vive table.
 			mysql_query("insert into vive (id, found) values (".$current["id"].", 0)");
+			// Lets also add it to the revive tracker.
 			mysql_query("insert into revive (id) values (".$current["id"].")");
 		}	
 	}
