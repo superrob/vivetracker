@@ -2,11 +2,24 @@
 <?php
 // Used to move old entries from the main table to the archive table.
 include("database.php");
+echo "Moving entries from vive to vive_archive..\n\n";
+$get = $db->query("SELECT * FROM `vive` WHERE `id` < 7995008963 AND found=1 AND origin != '' AND `origin` NOT LIKE '%Ricany-Jazlovice%'");
 
-$get = mysql_query("SELECT * FROM `vive` WHERE `id` < 7995008963 AND found=1 AND origin != '' AND `origin` NOT LIKE '%Ricany-Jazlovice%'");
-while ($dat = mysql_fetch_array($get)) {	
-	mysql_query("delete from vive where id=".$dat['id']);
-	mysql_query("insert into vive (id, found, firstdate, scandate) values ('".$dat['id']."', 1, '".$dat['firstdate']."', '".$dat['scandate']."')");
-	mysql_query("insert into vive_archive (id, origin, destination, description, firstdate, scandate) values ('".$dat['id']."', '".$dat['origin']."', '".$dat['destination']."', '".$dat['description']."', '".$dat['firstdate']."', '".$dat['scandate']."')");
+// Prepared statement for updating the Vive table
+$db_updateVive_stmt = $db->prepare('update vive set origin="", destination="", description="" where id=?');
+
+// Prepared statement for inserting into the archive table
+$db_insertArchive_stmt = $db->prepare('insert into vive_archive (id, origin, destination, description, firstdate, scandate) values (?, ?, ?, ?, ?, ?)');
+
+while ($dat = $get->fetch_array()) {	
+	echo "Moving id " . $dat['id']."\n";
+	$db_updateVive_stmt->bind_param("i", $dat['id']);
+	$db_updateVive_stmt->execute();
+	
+	$db_insertArchive_stmt->bind_param("isssss", $dat['id'], $dat['origin'], $dat['destination'], $dat['description'], $dat['firstdate'], $dat['scandate']);
+	$db_insertArchive_stmt->execute();
 }
+$db_insertArchive_stmt->close();
+$db_insertVive_stmt->close();
+$db->close();
 ?>
